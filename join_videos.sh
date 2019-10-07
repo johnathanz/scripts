@@ -11,11 +11,12 @@
 #   - part 1 processed to folder "part1_processed"
 #   - output to folder "output"
 #
-# Required: ffmpeg
+# Required: ffmpeg, ffprobe
 #
 
 FRAMES_PER_SECOND=30
 FADE_IN_DURATION=1  # in seconds
+FADE_OUT_DURATION=1  # in seconds
 DIR_MP4="01.part1_MP4"
 DIR_PROCESSED="02.part1_mp4_faded"
 DIR_OUTPUT="03.output"
@@ -44,9 +45,13 @@ for file in part1/*; do
 
   let fade_in_frames_start=`echo "scale=0;$FADE_IN_DURATION * $FRAMES_PER_SECOND" | bc | awk '{print int($1+0.5)}'` 
 
-  # Add Fade in to Part 1
+  # Add Fade in & Fade out to Part 1
   path_mp4_faded="$DIR_PROCESSED/$file_name"
-  ffmpeg -y -i "$path_mp4" -vf 'fade=in:0:'"$fade_in_frames_start" -af 'afade=in:st=0:d=1' -c:v libx264 -crf 22 -preset fast $path_mp4_faded
+  video_duration=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$path_mp4"`
+  fade_out_frames_start=`echo "scale=0;$video_duration * $FRAMES_PER_SECOND - $FADE_OUT_DURATION * $FRAMES_PER_SECOND" | bc | awk '{print int($1+0.5)}'`
+  echo "duration: $video_duration | fade out frames start: $fade_out_frames_start"
+  ffmpeg -y -i "$path_mp4" -vf 'fade=in:0:'"$fade_in_frames_start"',fade=out:'"$fade_out_frames_start"':'"$FRAMES_PER_SECOND" -af 'afade=in:st=0:d=1' -c:v libx264 -crf 22 -preset fast $path_mp4_faded
+
 
   ####### Join Videos ########
   # Join after converting to streams
